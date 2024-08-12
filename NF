@@ -1,0 +1,40 @@
+install.packages("BiocManager")
+install.packages("matrixTests")
+BiocManager::install("genefilter")
+library(BiocManager)
+library(matrixTests)
+library(genefilter)
+
+norm = as.matrix(read.csv("lusc-rsem-fpkm-tcga_paired.csv", row.names=1))
+tum = as.matrix(read.csv("lusc-rsem-fpkm-tcga-t_paired.csv", row.names=1))
+
+data = cbind(tum,norm)
+
+
+data=data[rowMeans(data) > 1,]
+
+
+tum.mean = apply((log2(data+1))[,1:50], 1, mean)
+norm.mean = apply((log2(data+1))[,51:dim(data)[2]], 1, mean)
+
+
+fold=tum.mean-norm.mean
+
+
+phenotype = as.data.frame(factor(rep(c("tum","norm"), c(50, 50))))
+colnames(phenotype)= "grouping"
+
+t=rowttests(data,phenotype$grouping)
+
+p.adj=p.adjust(t$p.value, method = "fdr")
+
+result=as.data.frame(cbind(fold , p.adj))
+
+
+res.deg=result[result$p.adj < 0.05 & abs(result$fold)>2,]
+
+#export the Degs into your current folder for further analysthis
+write.csv(as.matrix(res.deg),file="res.degs.csv", quote=F,row.names=T)
+
+#using nonprametric test as wilcoxon test if the data isn't normally distributed
+w=row_wilcoxon_twosample(data[,1:50],data[,51:dim(data)[2]])
